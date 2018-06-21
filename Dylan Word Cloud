@@ -1,0 +1,34 @@
+############################################
+#######Visual 3 - Dylan Word Cloud##########
+############################################
+
+ui<-fluidPage(
+  titlePanel("Bob Dylan's Word Usage by Studio Album (past 18 years)"),
+  selectInput(inputId="album",
+              label="Choose an album",
+              choices = c("Triplicate","Fallen Angels","Shadows in the Night", "Tempest","Christmas in the Heart","Together Through Life","Modern Times","Love and Theft")),
+  sliderInput(inputId="frequency",
+              label="Pick a minimum frequency",
+              min=1, max=93, value=1),
+  wordcloud2Output(outputId="Plot1")
+)
+server<-function(input,output){
+  output$Plot1<-renderWordcloud2({
+    kendrick_album <- genius_album(artist = "Bob Dylan", album = input$album)
+    
+    album_lyrics <- select(kendrick_album, lyric)
+    album<-Corpus(VectorSource(album_lyrics))
+    #wordsToRemove <- c("and","can","like")
+    album <- tm_map(album, content_transformer(tolower))
+    album<-tm_map(album, removeWords, c("like", "will", "can","the","and","just","now","know", stopwords('english')))
+    
+    dtm<-TermDocumentMatrix(album)
+    
+    m<-as.matrix(dtm)
+    v<-sort(rowSums(m), decreasing=TRUE)
+    d<-data.frame(word=names(v), freq=v)
+    d<-filter(d, input$frequency<=freq & input$frequency<=93)
+    wordcloud2(d)
+  })
+}
+shinyApp(ui,server)
