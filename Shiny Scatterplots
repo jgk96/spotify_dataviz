@@ -1,0 +1,151 @@
+#####################################################################
+#######Visual 4 - Song Danceability vs. Popuarity by Artist##########
+#####################################################################
+
+ui<-fluidPage(
+  titlePanel("Track Danceability vs. Track Popularity by Artist"),
+  actionButton("go","Go"),
+  textInput(inputId='artist',
+            label="Choose an artist"),
+  # actionButton("goButton","Get Albums"),
+  # updateSelectizeInput(inputId="albums",
+  #                label="Choose an album",
+  #                options=unique(subset(tots, album_names %in% input$albums)),
+  plotlyOutput(outputId="Plot1")
+)
+server<-function(input,output){
+  # eventReactive(input$go,{
+  #   runif(input$artist)
+  #   
+  # })
+  out <- eventReactive(input$go, {
+    
+    artists <- get_artists(tolower(input$artist))
+    selected_artist <- input$artist #user input
+    artist_uri <- artists$artist_uri[artists$artist_name == 
+                                       selected_artist]
+    albums <- get_albums(artist_uri[1])
+    
+    album_popularity <- get_album_popularity(albums)
+    tracks <- get_album_tracks(albums)
+    track_features <- get_track_audio_features(tracks)
+    track_popularity <- get_track_popularity(tracks)
+    tots <- albums %>% left_join(album_popularity, by = "album_uri") %>% 
+      left_join(tracks, by = "album_name") %>% left_join(track_features, 
+                                                         by = "track_uri") %>% left_join(track_popularity, by = "track_uri")
+    
+    
+    
+    
+    p <- ggplot(tots)+
+      geom_point(aes(x=danceability, y=track_popularity, color=album_name,
+                     text=paste("Track:",track_name)))+
+      xlab("Danceability")+
+      ylab("Track Popularity")+
+      labs(color="Album")+ #how to add caption to legend?
+      ggtitle(paste("Chosen artist:",input$artist))+
+      theme(plot.title = element_text(hjust = -0.9))
+    p
+    
+  })
+  
+  
+  output$Plot1<-renderPlotly({
+    
+    #legend
+    
+    l <- list(
+      font = list(
+        family = "sans-serif",
+        size = 10,
+        color = "#000"),
+      bgcolor = "#E2E2E2",
+      bordercolor = "#FFFFFF",
+      borderwidth = 1)
+    
+    ggplotly(out(),tooltip="text") %>%
+      layout(legend = l)
+  })
+}
+shinyApp(ui,server)
+
+
+####################################################################
+#######Visual 5 - Compare Playlist Moods between Two Users##########
+####################################################################
+
+#example URIs: 
+#tgkuruvilla
+#22hszw7y6vmwr3h3qfhwfv75a
+#22fdypmz4jxybmzyr3eeu3tsy
+#223cu73py2vk7i3f5rhtake2q
+
+ui<-fluidPage(
+  titlePanel("Comparing Music Moods between two Spotify Users"),
+  sidebarLayout(
+    sidebarPanel(
+      textInput(inputId='user1',
+                label="Enter Spotify URI for user 1"),
+      textInput(inputId='user2',
+                label="Enter Spotify URI for user 2"),
+      actionButton("go","Go"), 
+      width=2),
+  mainPanel(
+    plotlyOutput(outputId="Plot1"),
+    plotlyOutput(outputId="Plot2"), 
+    width=10
+  )
+  )
+)
+server<-function(input,output, session){
+  out1 <- eventReactive(input$go, {
+    
+    user1_tots <- get_user_audio_features(input$user1)
+    
+    g1<-ggplot(data=user1_tots)+
+      geom_point(aes(x=valence, y=energy, text=paste("Artist:", artist_name,"<br>Album:",album_name,"<br>Track:",track_name),color=playlist_name))+
+      theme_minimal()+
+      coord_fixed()+
+      geom_vline(xintercept=0.5) + geom_hline(yintercept=0.5)+
+      ggplot2::annotate("text", x=1.0, y=0.97, label = "Happy", color="black")+
+      ggplot2::annotate("text", x=1.0, y=0.03, label = "Relaxed", color="black")+
+      ggplot2::annotate("text", x=0.0, y=0.03, label = "Sad", color="black")+
+      ggplot2::annotate("text", x=0.0, y=0.97, label = "Angry", color="black")+
+      ggtitle(paste("User 1 -", input$user1))+
+      labs(color="Playlist")+
+      xlab("Valence")+
+      ylab("Energy")
+    g1
+    
+  })
+  out2 <- eventReactive(input$go, {
+    
+    user2_tots <- get_user_audio_features(input$user2)
+    
+    g2<-ggplot(data=user2_tots)+
+      geom_point(aes(x=valence, y=energy, text=paste("Artist:", artist_name,"<br>Album:",album_name,"<br>Track:",track_name),color=playlist_name))+
+      theme_minimal()+
+      coord_fixed()+
+      geom_vline(xintercept=0.5) + geom_hline(yintercept=0.5)+
+      ggplot2::annotate("text", x=1.0, y=0.97, label = "Happy", color="black")+
+      ggplot2::annotate("text", x=1.0, y=0.03, label = "Relaxed", color="black")+
+      ggplot2::annotate("text", x=0.0, y=0.03, label = "Sad", color="black")+
+      ggplot2::annotate("text", x=0.0, y=0.97, label = "Angry", color="black")+
+      ggtitle(paste("User 2 -", input$user2))+
+      labs(color="Playlist")+
+      xlab("Valence")+
+      ylab("Energy")
+    g2
+    
+  })
+  output$Plot1<-renderPlotly({
+    
+    ggplotly(out1(), tooltip="text")
+    
+  })
+  output$Plot2<-renderPlotly({
+    
+    ggplotly(out2(), tooltip="text")
+  })
+}
+shinyApp(ui,server)
