@@ -1,0 +1,121 @@
+require(spotifyr)
+require(dplyr)
+require(ggplot2)
+require(plotly)
+require(shiny)
+require(geniusR) #run devtools::install_github(“josiahparry/geniusr”) to install
+require(tidyverse)
+require(purrr)
+require(readr)
+require(rvest)
+require(tidyr)
+require(tm)
+require(wordcloud2)
+require(SnowballC)
+
+Sys.setenv(SPOTIFY_CLIENT_ID = xxxxxxxxxxx)
+Sys.setenv(SPOTIFY_CLIENT_SECRET  =  xxxxxxxxxxx)
+
+access_token <- get_spotify_access_token()
+
+############################################
+######Getting artist data for Prince########
+############################################
+
+artists <- get_artists('prince')
+selected_artist <- "Prince" #user input
+artist_uri <- artists$artist_uri[artists$artist_name == 
+                                   selected_artist]
+albums <- get_albums(artist_uri)
+
+album_popularity <- get_album_popularity(albums)
+tracks <- get_album_tracks(albums)
+track_features <- get_track_audio_features(tracks)
+track_popularity <- get_track_popularity(tracks)
+prince <- albums %>% left_join(album_popularity, by = "album_uri") %>% 
+  left_join(tracks, by = "album_name") %>% left_join(track_features, 
+                                                     by = "track_uri") %>% left_join(track_popularity, by = "track_uri")
+
+
+
+##################################################
+######Visual 1 - Prince's Key Distribution########
+##################################################
+
+prince$key <- substr(prince$key_mode, 1, 2)
+ggplot(data=prince)+
+  geom_bar(aes(x=key, y=..count../sum(..count..)*100,fill=mode),position="dodge")+
+  ylab("Percentage of Total Key Signatures")+
+  xlab("Key")+
+  ggtitle("Prince's Key Usage Distribution")+
+  labs(col="Mode")+
+  guides(fill = guide_legend(title="Mode"))+
+  scale_fill_manual(values=c("#67438e", "#000000"))
+
+
+##############################################################
+######Visual 2 - Average Danceability of Prince Albums########
+##############################################################
+
+prince2 = select(prince, album_name, album_release_date, album_popularity, track_name, danceability,
+                 energy, loudness, mode, speechiness, acousticness, instrumentalness, liveness,
+                 valence, tempo, duration_ms, key_mode, track_popularity, album_uri)
+
+
+prince <- prince[-c(92), ]
+
+album_danceability <- summarise(group_by(prince2, album_uri), aveDance=mean(danceability))
+
+album_years1 <- prince[1:181,]
+album_years1_unique <- data.frame(unique(album_years1$album_release_date),unique(album_years1$album_uri))
+album_years2 <- prince[182:213,]
+album_years2_unique <- data.frame(unique(album_years2$album_release_date),unique(album_years2$album_uri))
+
+album_years1_unique <- setNames(album_years1_unique, c("album_release_date","album_uri"))
+album_years2_unique <- setNames(album_years2_unique, c("album_release_date","album_uri"))
+
+album_years <- rbind(album_years1_unique,album_years2_unique)
+
+prince_dance <- merge(album_years, album_danceability, by="album_uri")
+
+album_names <- data.frame(prince[2],prince[1])
+
+album_names <- unique(album_names)
+prince_dance <- merge(prince_dance, album_names, by="album_uri")
+
+
+labels <- c("For You (1978)", "Prince (1979)", "Dirty Mind (1980)","Controversy (1981)","1999 (1982)", 
+            "Purple Rain (1984)", "Around The World in a Day (1985)", "Parade (1986)",
+            "Sign o' The Times (1987)", "Batman (1989)","Music From Graffiti Bridge (1990)",
+            "Diamonds and Pearls (1991)", "[Love Symbol] (1992)", "Come (1994)", "The Vault - Old Friends 4 Sale (1999)",
+            "ART OFFICIAL AGE (2014)", "PLECTELECTRUM (2014)", "Purple Rain Deluxe (Expanded Edition) (2017)")
+
+#prince album danceability, scatterplot
+# ggplot(data=prince_dance)+
+#   geom_line(aes(x=album_release_date, y=aveDance), group=1)+
+#   geom_point(aes(x=album_release_date, y=aveDance, colour="purple"))+
+#   theme(axis.text.x=element_text(angle=70, size=8, vjust=0.6),axis.title.x=element_text(vjust=0.9), legend.position="none")+
+#   scale_colour_manual(values=c("#663399"))+
+#   ylab("Average Danceability")+
+#   xlab("Album")+
+#   scale_x_discrete(labels=labels)+
+#   ggtitle("Average Danceability of Prince Albums")
+
+#album danceability violin plot
+violin<-ggplot(data=prince)+
+  geom_violin(aes(x=album_release_date, y=danceability, fill=album_release_date))+
+  stat_summary(aes(x=album_release_date, y=danceability),fun.y=mean, geom="point",color="grey")+
+  theme(axis.text.x=element_text(angle=70, size=8, vjust=0.6),axis.title.x=element_text(vjust=0.9), legend.position="none")+
+  xlab("Album")+
+  ylab("Average Danceability")+
+  scale_x_discrete(labels=labels)
+
+violin
+
+
+
+
+
+
+
+
