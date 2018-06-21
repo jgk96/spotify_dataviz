@@ -1,4 +1,4 @@
-Repo for my QAC251 - Data Visualization at Wesleyan University.
+Repo for my QAC251 - Data Visualization project at Wesleyan University.
 
 Special thanks to:
 - Josiah Parry (geniusR): http://josiahparry.com/post/introducing-geniusr/
